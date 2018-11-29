@@ -1,13 +1,13 @@
 from classes import *
 
-nodes = GraphElements([])
-edges = GraphElements([])
+#nodes = GraphElements([])
+#edges = GraphElements([])
 debug = True
 
 """ Resolves any edges of length sqrt(2)"""
-def resolve_root_two(edge):
-    global nodes
-    global edges
+def resolve_root_two(edge, nodes, edges):
+    #global nodes
+    #global edges
     global debug
     if debug: print("Resolving {}".format(edge))
 
@@ -47,17 +47,20 @@ def resolve_root_two(edge):
         edges.add(new_edge1)
         nodes.add(new_node)
 
+        return new_node, nodes, edges
     # If both nodes cannot take a new edge, add an edge to one and identify another edge. No new node creation.
     elif node0.can_add_edge():
-        connect_dissimilar_nodes_add_unit(node0, node1)
+        opposite_node = connect_dissimilar_nodes_add_unit(node0, node1)
         node0.sub_remaining(1)
         node1.sub_remaining(1)
-
+        return opposite_node, nodes, edges
+    
     elif node1.can_add_edge():
-        connect_dissimilar_nodes_add_unit(node1, node0)
+        opposite_node = connect_dissimilar_nodes_add_unit(node1, node0)
         node0.sub_remaining(1)
         node1.sub_remaining(1)
-
+        return opposite_node, nodes, edges
+    
     else:
         if debug: print("Looking for overlapping neighbor between nodes {} and {}".format(node0, node1))
         # Collect unresolved eges from node0
@@ -86,9 +89,11 @@ def resolve_root_two(edge):
                 #if neighbor_nodes_node1[0].internal:
                 merge_nodes(neighbor_nodes_node0[0], neighbor_nodes_node1[0])
                 neighbor_nodes_node0[0].sub_remaining(4)
+                opposite_node = neighbor_nodes_node0[0]
             else : #if neighbor_nodes_node0[0].internal:
                 merge_nodes(neighbor_nodes_node1[0], neighbor_nodes_node0[0])
                 neighbor_nodes_node1[0].sub_remaining(4)
+                opposite_node = neighbor_nodes_node1[0]
 
         # If there is one subsumable neighbor for one node but not the other,
         # cheat on the assumption that it's the last match.
@@ -105,6 +110,7 @@ def resolve_root_two(edge):
                 node0.add_edge(unit_edge.label)
                 merge_nodes(neighbor_nodes_node1[0], far_node)
                 neighbor_nodes_node1[0].sub_remaining(2)
+                opposite_node = neighbor_nodes_node1[0]
             else:
                 unit_edge = Edge((True, 1, 0), far_node.label, node1.label)
                 edges.add(unit_edge)
@@ -112,6 +118,7 @@ def resolve_root_two(edge):
                 node1.add_edge(unit_edge.label)
                 merge_nodes(neighbor_nodes_node0[0], far_node)
                 neighbor_nodes_node0[0].sub_remaining(2)
+                opposite_node = neighbor_nodes_node0[1]
 
 
         else:
@@ -121,6 +128,7 @@ def resolve_root_two(edge):
         # The nodes that the edge connect have had 45* resolved    
         node0.sub_remaining(1)
         node1.sub_remaining(1)
+        return opposite_node, nodes, edges
 
 """ Given node object, return list of adjacent unresolved edge objects """
 def get_all_unresolved_edges(node):
@@ -138,13 +146,13 @@ def get_far_node(node, edge):
             return n
 
 """ Attempts to find/create the 3rd point of a triangle where node0 can add an edge and node1 cannot """
-def connect_dissimilar_nodes_add_unit(node0, node1):
-    global nodes
-    global edges
+def connect_dissimilar_nodes_add_unit(node0, node1, nodes, edges):
+    #global nodes
+    #global edges
     
     if debug: print("Adding edge to node {}; using existing edge for node {}".format(
         node0.label, node1.label))
-    gather_resolutions()
+    gather_resolutions(nodes, edges)
 
     # identify an unresolved candidate edge
     roots, units, others = group_unresolved_edges(node1)
@@ -165,6 +173,7 @@ def connect_dissimilar_nodes_add_unit(node0, node1):
         node0.add_edge(new_edge.label)
         far_node.add_edge(new_edge.label)
         edges.add(new_edge)
+        return far_node, nodes, edges
 
     # If exact length is not known, split/create new edges
     elif not connecting_edge.is_known() and connecting_edge.lt_one():
@@ -194,15 +203,17 @@ def connect_dissimilar_nodes_add_unit(node0, node1):
         farther_node.internal = True
         connecting_edge.resolved = True
         splint_edge.resolved = True
+
+        return farther_node, nodes, edges
     
     else:
         print("Error: unimplemented behavior required")
         exit()
 
-""" Split long eges into sqrt(2)-length edge and other edge """
-def split_edge_root(node, edge):
-    global nodes
-    global edges
+""" Split long edges into sqrt(2)-length edge and other edge """
+def split_edge_root(node, edge, nodes, edges):
+    #global nodes
+    #global edges
     # Get neighboring node, create new side node, non-root edge
     far_node = nodes.get(get_far_node(node, edge))
     side_node = Node(4, [edge.label])
@@ -225,7 +236,7 @@ def split_edge_root(node, edge):
     # Register new node, edge
     edges.add(far_edge)
     nodes.add(side_node)
-    return side_node
+    return side_node, nodes, edges
 
 """ Two nodes have been identified as actually the same; combine them."""
 def merge_nodes(destination, source):
@@ -263,8 +274,8 @@ def group_unresolved_edges(node):
                 others.append(e)
     return roots, units, others
 
-def resolve_pointy_node(node):
-    global edges
+def resolve_pointy_node(node, nodes, edges):
+    #global edges
     if debug: print("Resolving node {}".format(node))
     roots, units, others = group_unresolved_edges(node)
    
@@ -281,7 +292,7 @@ def resolve_pointy_node(node):
         if unit_edge.is_one():
             far_unit_node = nodes.get(get_far_node(node, unit_edge))
         else:
-            far_unit_node = split_edge_one(node, unit_edge)
+            far_unit_node, nodes, edges = split_edge_one(node, unit_edge, nodes, edges)
             
         # we know other_edge cannot be a root multiple, but it might be known
         if other_edge.is_known():
@@ -348,9 +359,9 @@ def resolve_pointy_node(node):
                 
 
 
-def split_edge_one(node, edge):
-    global nodes
-    global edges
+def split_edge_one(node, edge, nodes, edges):
+    #global nodes
+    #global edges
     far_node = nodes.get(get_far_node(node, edge))
     side_node = Node(4, [edge.label])
     far_edge = Edge(edge.minus_one(), side_node.label,
@@ -365,11 +376,11 @@ def split_edge_one(node, edge):
     edge.length = (True, 1, 0) #edge.minus_one()
     edges.add(far_edge)
     nodes.add(side_node)
-    return side_node
+    return side_node, nodes, edges
 
-def resolve_overlapped_edge(edge):
-    global edges
-    global nodes
+def resolve_overlapped_edge(edge, nodes, edges):
+    #global edges
+    #global nodes
 
     # for now, we're assuming that one of these is < 180* and the other one is
     # greater than 180*.
@@ -383,6 +394,9 @@ def resolve_overlapped_edge(edge):
         convex_node = nodes.get(edge.nodes[0])
     else:
         if debug: print("Error: node properties do not match assumptions.")
+        if debug: print("{}, {} {}".format(
+            edge, nodes.get(edge.nodes[0]), nodes.get(edge.nodes[1])))
+        return nodes, edges
 
     interior_node = Node(8, [])
     root_edge = Edge((True, 0, 1), convex_node.label,
@@ -398,10 +412,9 @@ def resolve_overlapped_edge(edge):
     edge.resolved = True
     edges.add([root_edge, unit_edge])
     nodes.add(interior_node)
+    return nodes, edges
     
-def identify_squares():
-    global edges
-    global nodes
+def identify_squares(nodes, edges):
     if debug: print("Identifying squares")
 
     square_quads = []
@@ -422,31 +435,7 @@ def identify_squares():
                     
     return square_quads                    
                 
-
-def resolve_square(square):
-    global nodes
-    global edges
-    base_corner = square[0]
-    right_corner = square[1]
-    base_edge = square[2]
-    tall_edge = square[3]
-    tall_corner = nodes.get(get_far_node(right_corner, tall_edge))
-    if debug: print("Resolving square {} {} {}".format(base_corner, right_corner, tall_corner))
-    if not base_corner.resolved and not right_corner.resolved and not tall_corner.resolved:
-        hypotenuse = Edge((True, 0, 1), tall_corner.label, base_corner.label)
-        edges.add(hypotenuse)
-        base_corner.add_edge(hypotenuse.label)
-        tall_corner.add_edge(hypotenuse.label)
-        right_corner.sub_remaining(2)
-        base_corner.sub_remaining(1)
-        tall_corner.sub_remaining(1)
-        gather_resolutions()
-        resolve_root_two(hypotenuse)
-        gather_resolutions()
-    else:
-        if debug: print("Square already resolved.")
-
-def gather_resolutions(p=False):
+def gather_resolutions(nodes, edges, p=False):
     if p: print("--------------")
     for node in nodes.all():
         if p: print(node)
@@ -455,4 +444,40 @@ def gather_resolutions(p=False):
            nodes.get(edge.nodes[1]).resolved:
             edge.resolved = True
         if p: print(edge)
-    
+        
+def resolve_square(square, nodes, edges):
+    #global nodes
+    #global edges
+    base_corner = square[0]
+    right_corner = square[1]
+    base_edge = square[2]
+    tall_edge = square[3]
+    tall_corner = nodes.get(get_far_node(right_corner, tall_edge))
+    if debug: print("Resolving square {} {} {}".format(base_corner, right_corner, tall_corner))
+    if not base_corner.resolved and not right_corner.resolved and not tall_corner.resolved:
+        # Create & register square diagonal
+        hypotenuse = Edge((True, 0, 1), tall_corner.label, base_corner.label)
+        edges.add(hypotenuse)
+        # Connect everything
+        base_corner.add_edge(hypotenuse.label)
+        tall_corner.add_edge(hypotenuse.label)
+        # Modify properties
+        right_corner.sub_remaining(2)
+        base_corner.sub_remaining(1)
+        tall_corner.sub_remaining(1)
+        gather_resolutions(nodes, edges)
+        final_corner = resolve_root_two(hypotenuse)
+        gather_resolutions(nodes, edges)
+
+        # Create cross bar diagonal
+        cross_bar = Edge((True, 0, 1), right_corner.label, final_corner.label)
+        edges.add(cross_bar)
+        # Connect everything
+        right_corner.add_edge(cross_bar.label)
+        final_corner.add_edge(cross_bar.label)
+        # Modify properties
+        cross_bar.resolved = True
+        
+    else:
+        if debug: print("Square already resolved.")
+    return nodes, edges

@@ -6,14 +6,15 @@
 # known = False and i, j = 0
 
 from math import sqrt
+import image_util
 
 # "equality" computation with a margin of error
-def close_enough(num1, num2):
-    return abs(num1-num2)/num1 < 0.011
+#def close_enough(num1, num2):
+#    return abs(num1-num2)/num1 < 0.011
     
 class Node:
     new_label = 1
-    def __init__(self, points, edges):
+    def __init__(self, points, edges=[]):
         self.label = Node.new_label
         Node.new_label += 1
         self.points = points
@@ -42,6 +43,9 @@ class Node:
 
     def remove_edge(self, edge):
         self.edges.remove(edge)
+
+    def __gt__(self, other):
+        return self.label > other.label
 
     def sub_remaining(self, count):
         if self.remaining_points >= count:
@@ -79,11 +83,11 @@ class Edge:
         
     # try to determine the closest fit between units/root two
     def process_raw(self, length):
-        progression = [(0, 0), (-1, 1), (1, 0), (0, 1), (2, 0), (1, 1), (0, 2), (3, 0)]
+        progression = [(0, 0), (-1, 1), (2, -1), (-2, 2), (1, 0), (0, 1), (-1, 2), (2, 0), (1, 1), (0, 2), (3, 0), (-1, 3), (2, 1), (4, 0)]
         for n in range(1, len(progression), 1):
             combo = progression[n]
             tlen = combo[0] + 2**(1/2)*combo[1]
-            if close_enough(tlen, length):
+            if image_util.close_enough(tlen, length):
                 return (True,) + combo
             elif tlen > length:
                 return (False,) + progression[n-1]
@@ -138,6 +142,9 @@ class Edge:
     
     def __str__(self):
         return "E{0}: {1} {2}. Resolved: {3}".format(self.label, self.nodes, self.length, self.resolved)
+
+    def __hash__(self):
+        return hash(set(*self.nodes))
 
 class GraphElements:
     def __init__(self, elements=[]):
