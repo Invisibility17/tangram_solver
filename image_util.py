@@ -3,6 +3,49 @@ import cv2
 #import numpy as np
 threshold = 8
 
+def lines_connect(line1, line2):
+    if line1.coords[0] in line2.coords:
+        return True
+    if line1.coords[1] in line2.coords:
+        return True
+    return False
+
+def third_line(line1, line2, lines):
+    line1 = line1.coords
+    line2 = line2.coords
+    if line1[0] == line2[0]:
+        third = [line1[1], line2[1]]
+    elif line1[1] == line2[0]:
+        third = [line1[0], line2[1]]
+    elif line1[0] == line2[1]:
+        third = [line1[1], line2[0]]
+    elif line1[1] == line2[1]:
+        third = [line1[0], line2[0]]
+    third.sort()
+    if lines.contains(tuple(third)):
+        if close_enough(distance_between(*line2) + distance_between(*third), distance_between(*line1)):
+            return line1
+    return False
+    
+def at_45_degree_multiple(point1, point2):
+    if close_enough(point1[0], point2[0]):
+        return True
+    if close_enough(point1[1], point2[1]):
+        return True
+    pt = (point1[0], point2[1])
+    angle = angle_between(point1, point2, pt)
+    if close_enough(angle, 45, 3) or close_enough(angle, 135, 3) or close_enough(angle, 225, 3) or close_enough(angle, 315, 3):
+        return True
+    return False
+    
+def is_regular_length(point1, point2, unit_length):
+    distance = distance_between(point1, point2)
+    progression = [(1, 0), (0, 1), (2, 0), (1, 1), (0, 2), (3, 0), (2, 1), (1, 2), (4, 0), (3, 1), (2,2)]
+    for lengths in progression:
+        if close_enough((lengths[0]+sqrt(2)*lengths[1])*unit_length, distance, 4):
+            return True
+    return False
+
 def find_convexity(point, img):
     theta = 30
     directions = [pi/6, pi/6 + pi/4, pi/6 + pi/2, pi/6 + 3*pi/4, pi/6 + pi, pi/6 + 5*pi/4, pi/6 + 3*pi/2, pi/6 + 7*pi/4 ]
@@ -13,7 +56,8 @@ def find_convexity(point, img):
         if img[y][x] == 0:
             black += 1
     return black
-        
+
+  
 def inside_edge(point1, point2, img):
     if not close_enough(point1[0], point2[0]):
         up1 = (point1[0], point1[1]-threshold)
@@ -31,6 +75,25 @@ def inside_edge(point1, point2, img):
             return True
 
     return False
+
+def legal_edge(point1, point2, img):
+    if not close_enough(point1[0], point2[0]):
+        up1 = (point1[0], point1[1]-threshold)
+        down1 = (point1[0], point1[1]+threshold)
+        up2 = (point2[0], point2[1]-threshold)
+        down2 = (point2[0], point2[1]+threshold)
+        if points_between_are_inside(up1, up2, img) == 1 or points_between_are_inside(down1, down2, img) == 1:
+            return True
+    else:
+        right1 = (point1[0]+threshold, point1[1])
+        left1 = (point1[0]-threshold, point1[1])
+        right2 = (point2[0]+threshold, point2[1])
+        left2 = (point2[0]-threshold, point2[1])
+        if points_between_are_inside(right1, right2, img) == 1 or points_between_are_inside(left1, left2, img) == 1:
+            return True
+
+    return False
+
 def outside_edge(point1, point2, img):
     if not close_enough(point1[0], point2[0]):
         up1 = (point1[0], point1[1]-threshold)
@@ -52,7 +115,7 @@ def outside_edge(point1, point2, img):
             return True
     return False
 
-def close_enough(int1, int2):
+def close_enough(int1, int2, threshold=8):
     return abs((int1-int2)*100/max(int1, int2)) < threshold
 
 def distance_is(point1, point2, unit_len):
@@ -71,11 +134,11 @@ def black_area(filename):
                 black += 1
     return black
                 
-"""def angle_between(center_point, point1, point2):
+def angle_between(center_point, point1, point2):
     a = (center_point[0]-point1[0])**2 + (center_point[1]-point1[1])**2
     b = (center_point[0]-point2[0])**2 + (center_point[1]-point2[1])**2
     c = (point1[0]-point2[0])**2 + (point1[1]-point2[1])**2
-    return round(4* acos((a+b-c)/ sqrt(4*a*b)) / pi)"""
+    return round(180* acos((a+b-c)/ sqrt(4*a*b)) / pi)
 
 def points_between_are_inside(point1, point2, img, check=30):
     x1, y1 = point1
@@ -109,9 +172,9 @@ def points_between_are_inside(point1, point2, img, check=30):
                 black += 1
             else:
                 white += 1
-    if (black / (black+white)) > 0.85:
+    if (black / (black+white)) > 0.93:
         return 1
-    elif (white / (black+white)) > 0.85:
+    elif (white / (black+white)) > 0.93:
         return 0
     else:
         return -1
@@ -136,7 +199,7 @@ def points_are_close(point1, point2):
 
 class Corner():
     def __init__(self, pt):
-        self.label = pt
+        self.coords = pt
         self.neighbors = set()
         self.convex = None
         self.points = 0
@@ -144,9 +207,7 @@ class Corner():
     def add_neighbor(self, neighbor):
         assert type(neighbor) == tuple
         self.neighbors.add(neighbor)
-        if len(self.neighbors) > 2:
-            print("Error: too many neighbors")
-            exit()
+        
 
     def remove_neighbor(self, neighbor):
         if neighbor in self.neighbors:
@@ -156,7 +217,22 @@ class Corner():
             exit()
 
     def __hash__(self):
-        return hash(self.label)
+        return hash(self.coords)
 
     def __str__(self):
-        return """{}: points: {}, {}""".format(self.label, self.points, self.neighbors)
+        return """{}: points: {}, {}""".format(self.coords, self.points, self.neighbors)
+
+inside = 1
+edge = 2
+mixed = 3
+class Line():
+    ref = {1:"internal", 2:"edge", 3:"mixed", 0:"undefined"}
+    def __init__(self, coords, line_type=0):
+        self.coords = coords
+        self.line_type = line_type
+
+    def __hash__(self):
+        return hash(self.coords)
+
+    def __str__(self):
+        return """{}: line type {}""".format(self.coords, self.ref[self.line_type])

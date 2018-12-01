@@ -14,7 +14,7 @@ import image_util
     
 class Node:
     new_label = 1
-    def __init__(self, points, edges=[]):
+    def __init__(self, points, edges=[], coords=()):
         self.label = Node.new_label
         Node.new_label += 1
         self.points = points
@@ -23,6 +23,7 @@ class Node:
         self.edges = edges.copy()
         self.resolved = False
         self.internal = False
+        self.coords=coords
 
     def __str__(self):
         return "N{0}: {1} {2} {3} Resolved: {4}".format(
@@ -60,11 +61,12 @@ class Node:
 class Edge:
     new_label = 1
     # it might  be better to pass a raw length and let Edge determine the "length"
-    def __init__(self, length, node1, node2, raw=False):
+    def __init__(self, length, node1, node2, raw=False, coords=()):
         self.label = Edge.new_label
         Edge.new_label += 1
         self.nodes = [node1, node2]
         self.resolved = False
+        self.coords = coords
         if raw:
             self.length = self.process_raw(raw)
             self.raw = raw
@@ -85,12 +87,18 @@ class Edge:
     def process_raw(self, length):
         progression = [(0, 0), (-1, 1), (2, -1), (-2, 2), (1, 0), (0, 1), (-1, 2), (2, 0), (1, 1), (0, 2), (3, 0), (-1, 3), (2, 1), (4, 0)]
         for n in range(1, len(progression), 1):
-            combo = progression[n]
-            tlen = combo[0] + 2**(1/2)*combo[1]
-            if image_util.close_enough(tlen, length):
-                return (True,) + combo
-            elif tlen > length:
-                return (False,) + progression[n-1]
+            next_combo = progression[n]
+            last_combo = progression[n-1]
+            next_len = next_combo[0] + 2**(1/2)*next_combo[1]
+            last_len = last_combo[0] + 2**(1/2)*last_combo[1]
+            if image_util.close_enough(next_len, length, 4):
+                return (True,) + next_combo
+            elif next_len > length:
+                if abs(next_len-length) < abs(last_len-length):
+                    return (False,) + next_combo
+                else:
+                    return (False,) + last_combo
+                #return (False,) + progression[n-1]
 
             
                 
@@ -128,7 +136,7 @@ class Edge:
             print("Error: too short to subtract root from edge")
 
     def is_overlapped(self):
-        return self.length == (True, -1, 1)
+        return self.length[1] < 0 or self.length[2] < 0
         
 
     def gteq_root(self):
@@ -141,7 +149,7 @@ class Edge:
         return self.length[1] + sqrt(2)*self.length[2] < 1
     
     def __str__(self):
-        return "E{0}: {1} {2}. Resolved: {3}".format(self.label, self.nodes, self.length, self.resolved)
+        return "E{0}: {1} {2}. Resolved: {3} {4}".format(self.label, self.nodes, self.length, self.resolved, self.coords)
 
     def __hash__(self):
         return hash(set(*self.nodes))
@@ -157,9 +165,14 @@ class GraphElements:
             self.elements.append(element)
 
     def get(self, label):
-        for element in self.elements:
-            if element.label == label:
-                return element
+        if type(label) == int:
+            for element in self.elements:
+                if element.label == label:
+                    return element
+        elif type(label) == tuple:
+            for element in self.elements:
+                if element.coords == label:
+                    return element
         print("Error: {} not found".format(label))
     def size(self):
         return len(self.elements)
@@ -168,6 +181,23 @@ class GraphElements:
         return self.elements
     
     def remove(self, label):
-        for element in []+self.elements:
-            if element.label == label:
-                self.elements.remove(element)
+        if type(label) == int:
+            for element in []+self.elements:
+                if element.label == label:
+                    self.elements.remove(element)
+        elif type(label) == tuple:
+            for element in []+self.elements:
+                if element.coords == label:
+                    self.elements.remove(element)
+
+    def contains(self, label):
+        if type(label) == int:
+            for element in self.elements:
+                if element.label == label:
+                    return True
+            return False
+        if type(label) == tuple:
+            for element in self.elements:
+                if element.coords == label:
+                    return True
+            return False

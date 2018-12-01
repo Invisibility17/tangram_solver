@@ -1,5 +1,5 @@
 from classes import *
-
+from math import sqrt
 #nodes = GraphElements([])
 #edges = GraphElements([])
 debug = True
@@ -50,13 +50,13 @@ def resolve_root_two(edge, nodes, edges):
         return new_node, nodes, edges
     # If both nodes cannot take a new edge, add an edge to one and identify another edge. No new node creation.
     elif node0.can_add_edge():
-        opposite_node = connect_dissimilar_nodes_add_unit(node0, node1)
+        opposite_node, nodes, edges = connect_dissimilar_nodes_add_unit(node0, node1, nodes, edges)
         node0.sub_remaining(1)
         node1.sub_remaining(1)
         return opposite_node, nodes, edges
     
     elif node1.can_add_edge():
-        opposite_node = connect_dissimilar_nodes_add_unit(node1, node0)
+        opposite_node, nodes, edges = connect_dissimilar_nodes_add_unit(node1, node0, nodes, edges)
         node0.sub_remaining(1)
         node1.sub_remaining(1)
         return opposite_node, nodes, edges
@@ -64,12 +64,12 @@ def resolve_root_two(edge, nodes, edges):
     else:
         if debug: print("Looking for overlapping neighbor between nodes {} and {}".format(node0, node1))
         # Collect unresolved eges from node0
-        roots, units, others = group_unresolved_edges(node0)
+        roots, units, others = group_unresolved_edges(node0, edges)
         radial_edges_node0 = units+others
         neighbor_nodes_node0 = [nodes.get(get_far_node(node0, e)) for e in radial_edges_node0]
         
         # Collect unresolved edges for node1
-        roots, units, others = group_unresolved_edges(node1)
+        roots, units, others = group_unresolved_edges(node1, edges)
         radial_edges_node1 = units+others
         neighbor_nodes_node1 = [nodes.get(get_far_node(node1, e)) for e in radial_edges_node1]
         
@@ -155,7 +155,7 @@ def connect_dissimilar_nodes_add_unit(node0, node1, nodes, edges):
     gather_resolutions(nodes, edges)
 
     # identify an unresolved candidate edge
-    roots, units, others = group_unresolved_edges(node1)
+    roots, units, others = group_unresolved_edges(node1, edges)
     adjacent_edges_node1 = units+others
                 
     if len(adjacent_edges_node1) != 1:
@@ -258,8 +258,8 @@ def merge_nodes(destination, source):
 
 
 
-def group_unresolved_edges(node):
-    global edges
+def group_unresolved_edges(node, edges):
+    #global edges
     roots = []
     units = []
     others = []
@@ -277,7 +277,7 @@ def group_unresolved_edges(node):
 def resolve_pointy_node(node, nodes, edges):
     #global edges
     if debug: print("Resolving node {}".format(node))
-    roots, units, others = group_unresolved_edges(node)
+    roots, units, others = group_unresolved_edges(node, edges)
    
     if len(units) + len(roots) == 0:
         if debug: print("Error: cannot determine edge")
@@ -340,7 +340,7 @@ def resolve_pointy_node(node, nodes, edges):
                 if debug: print("Error: Pointy adding edges not yet implemented.")
                 if debug: print(far_unit_node)
             else:
-                roots, candidates, units = group_unresolved_edges(far_unit_node)
+                roots, candidates, units = group_unresolved_edges(far_unit_node, edges)
                 candidates.remove(unit_edge)
                 if len(candidates) != 1:
                     if debug: print("Error: {} candidates in point resolution".format(len(candidates)))
@@ -384,12 +384,12 @@ def resolve_overlapped_edge(edge, nodes, edges):
 
     # for now, we're assuming that one of these is < 180* and the other one is
     # greater than 180*.
-    if nodes.get(edge.nodes[0]).points > 4 and nodes.get(
-        edge.nodes[1]).points < 4:
+    if nodes.get(edge.nodes[0]).remaining_points > 4 and nodes.get(
+        edge.nodes[1]).remaining_points < 4:
         concave_node = nodes.get(edge.nodes[0])
         convex_node = nodes.get(edge.nodes[1])
-    elif nodes.get(edge.nodes[1]).points > 4 and nodes.get(
-        edge.nodes[0]).points < 4:
+    elif nodes.get(edge.nodes[1]).remaining_points > 4 and nodes.get(
+        edge.nodes[0]).remaining_points < 4:
         concave_node = nodes.get(edge.nodes[1])
         convex_node = nodes.get(edge.nodes[0])
     else:
@@ -398,17 +398,30 @@ def resolve_overlapped_edge(edge, nodes, edges):
             edge, nodes.get(edge.nodes[0]), nodes.get(edge.nodes[1])))
         return nodes, edges
 
+    # these lengths need to change I think to accomodate other overlaps
     interior_node = Node(8, [])
-    root_edge = Edge((True, 0, 1), convex_node.label,
-                     interior_node.label)
-    unit_edge = Edge((True, 1, 0), concave_node.label,
-                     interior_node.label)
+    unit_length = edge.length[1]
+    root_length = edge.length[2]
+    if abs(unit_length) < abs(root_length * sqrt(2)):
+        root_edge = Edge((True, 0, abs(root_length)), convex_node.label,
+                         interior_node.label)
+        unit_edge = Edge((True, abs(unit_length), 0), concave_node.label,
+                         interior_node.label)
+        convex_node.add_edge(root_edge.label)
+        concave_node.add_edge(unit_edge.label)
+    else:
+        root_edge = Edge((True, 0, abs(root_length)), concave_node.label,
+                         interior_node.label)
+        unit_edge = Edge((True, abs(unit_length), 0), convex_node.label,
+                         interior_node.label)
+        convex_node.add_edge(unit_edge.label)
+        concave_node.add_edge(root_edge.label)
     interior_node.add_edge(root_edge.label)
     interior_node.add_edge(unit_edge.label)
     interior_node.internal = True
-    convex_node.add_edge(root_edge.label)
-    concave_node.add_edge(unit_edge.label)
-    concave_node.sub_remaining(4)
+    #convex_node.add_edge(root_edge.label)
+    #concave_node.add_edge(unit_edge.label)
+    #concave_node.sub_remaining(4)
     edge.resolved = True
     edges.add([root_edge, unit_edge])
     nodes.add(interior_node)
@@ -420,7 +433,7 @@ def identify_squares(nodes, edges):
     square_quads = []
     for corner0 in nodes.all():
         if corner0.remaining_points == 2: # 90* angles only
-            roots, units, others = group_unresolved_edges(corner0)
+            roots, units, others = group_unresolved_edges(corner0, edges)
             if len(units)+len(others) == 2:
                 for connecting_edge in units:
                     corner1 = nodes.get(get_far_node(corner0, connecting_edge))
@@ -444,6 +457,7 @@ def gather_resolutions(nodes, edges, p=False):
            nodes.get(edge.nodes[1]).resolved:
             edge.resolved = True
         if p: print(edge)
+
         
 def resolve_square(square, nodes, edges):
     #global nodes

@@ -15,7 +15,7 @@ from classes import GraphElements, Node, Edge
 
 def get_unit_length(filename):
     black_area = image_util.black_area(filename)
-    return int(round(sqrt(black_area/8)))
+    return sqrt(black_area/8)
 
 def detect_edges(corners, unit_length):
     print("Detecting edges")
@@ -87,20 +87,70 @@ def detect_corners(filename, unit_length):
         x, y = corner.ravel()
         simple_corners.append((x,y))
         corners.add(image_util.Corner((x,y)))
-        cv2.circle(color_img, (x, y), 10, 25*i, -1)
+        cv2.circle(color_img, (x, y), 5, (255, 0, 0), -1)
 
+    lines = set()
     for i, corner1 in enumerate(simple_corners):
         corners.get(corner1).points = image_util.find_convexity(corner1, bw_img)
         for j in range(i+1, len(simple_corners), 1):
-            if image_util.outside_edge(corner1, simple_corners[j], bw_img):
-                corners.get(corner1).add_neighbor(simple_corners[j])
-                corners.get(simple_corners[j]).add_neighbor(corner1)
+            if image_util.legal_edge(corner1, simple_corners[j], bw_img):
+                if image_util.is_regular_length(corner1, simple_corners[j], unit_length):
+                    if image_util.at_45_degree_multiple(corner1, simple_corners[j]):
+                        line = [corner1, simple_corners[j]]
+                        line.sort()
+                        line = tuple(line)
 
-    cv2.imwrite('all_corners.jpg',color_img)
+                        if image_util.outside_edge(corner1, simple_corners[j], bw_img):
+                            lines.add( image_util.Line(line, 2))
+                        elif image_util.inside_edge(corner1, simple_corners[j], bw_img):
+                            lines.add( image_util.Line(line, 1))
+                        else:
+                            lines.add(image_util.Line(line, 3))
+                        corners.get(corner1).add_neighbor(simple_corners[j])
+                        corners.get(simple_corners[j]).add_neighbor(corner1)
+                        cv2.line(color_img,corner1,simple_corners[j],(0,255,0),2)
 
-    return corners
+    
+    cv2.imwrite('detected_corners_and_edges.jpg',color_img)
+
+    return corners, GraphElements(list(lines))
             
         
+def create_nodes_edges(corners, lines, unit_length):
+    nodes = GraphElements([])
+    edges = GraphElements([])
+    for corner in corners.all():
+        new_node = Node(corner.points, coords=corner.coords)
+        new_node.internal = False
+        nodes.add(new_node)
+    superfluous_lines = set()
+    for line in lines.all():
+        if line.line_type == 3:
+            for smaller_line in lines.all():
+                if smaller_line != line and image_util.lines_connect(line, smaller_line):
+                    completion = image_util.third_line(line, smaller_line, lines)
+                    if completion:
+                        print("Found completion: {}".format(completion))
+                        superfluous_lines.add(line)
+    for line in list(superfluous_lines):
+        lines.remove(line.coords)
+
+    for line in lines.all():
+        node1 = nodes.get(line.coords[0])
+        node2 = nodes.get(line.coords[1])
+        dist = image_util.distance_between(*line.coords)
+        dist = dist/unit_length
+        new_edge = Edge("", node1.label, node2.label, dist, line.coords)
+        edges.add(new_edge)
+
+    for corner in corners.all():
+        node = nodes.get(corner.coords)
+        for neighbor in corner.neighbors:
+            edge_coords = [corner.coords, neighbor]
+            edge_coords.sort()
+            if edges.contains(tuple(edge_coords)):
+                edge = edges.get(tuple(edge_coords))
+                node.add_edge(edge.label)
+
+    return nodes, edges
     
-
-
