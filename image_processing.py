@@ -13,6 +13,22 @@ import image_util
 from math import sqrt
 from classes import GraphElements, Node, Edge
 
+def split_lines(corners, lines, filename, unit_length):
+    bw_img = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+    processed_count = 1
+    while processed_count != 0:
+        print(lines.size())
+        processed_count = 0
+        for line in lines.all():
+            print(line)
+            if not image_util.close_enough(image_util.distance_between(*line.coords), unit_length) \
+               and not image_util.close_enough(image_util.distance_between(*line.coords), sqrt(2)*unit_length):
+                processed, corners, lines = image_util.split_line(line, corners, lines, unit_length, bw_img)
+                processed_count += processed
+            
+        #processed = 0
+    return corners, lines    
+            
 def get_unit_length(filename):
     black_area = image_util.black_area(filename)
     return sqrt(black_area/8)
@@ -89,6 +105,7 @@ def detect_corners(filename, unit_length):
         corners.add(image_util.Corner((x,y)))
         cv2.circle(color_img, (x, y), 5, (255, 0, 0), -1)
 
+    # Add lines (internal and external; none across empty space)
     lines = set()
     for i, corner1 in enumerate(simple_corners):
         corners.get(corner1).points = image_util.find_convexity(corner1, bw_img)
@@ -109,31 +126,62 @@ def detect_corners(filename, unit_length):
                         corners.get(corner1).add_neighbor(simple_corners[j])
                         corners.get(simple_corners[j]).add_neighbor(corner1)
                         cv2.line(color_img,corner1,simple_corners[j],(0,255,0),2)
-
+    lines = GraphElements(list(lines))
+        
     
-    cv2.imwrite('detected_corners_and_edges.jpg',color_img)
+    #cv2.imwrite('detected_corners_and_edges.jpg',color_img)
 
-    return corners, GraphElements(list(lines))
-            
+    return corners, lines
+
+def visualize(in_name, out_name, corners, edges):
+    color_img = cv2.imread(in_name)
+    for edge in edges.all():
+        cv2.line(color_img,edge.coords[0],edge.coords[1],(randint(100, 200),randint(100, 200),randint(100, 200)),2)
+    for corner in corners.all():
+        cv2.circle(color_img, corner.coords, 5, (255, 0, 0), -1)
+    cv2.imwrite(out_name,color_img)
+
+def fill_in_solution(in_name, out_name, polygons):
+    img = cv2.imread(in_name)
+    for poly in polygons:
+        #poly = np.array(poly)
+        colors = (randint(100, 200), randint(100, 200), randint(100, 200))
+        
+        for i, p1 in enumerate(poly):
+            for j in range(i+1, len(poly), 1):
+                for k in range(j+1, len(poly), 1):
+                    cv2.fillPoly(img, pts=[np.array([poly[i], poly[j], poly[k]])], color=colors)
+    cv2.imwrite(out_name, img)        
         
 def create_nodes_edges(corners, lines, unit_length):
     nodes = GraphElements([])
     edges = GraphElements([])
+
+    # Get rid of unnecessary edges
+    superfluous_lines = set()
+    for line in lines.all():
+        #if line.line_type == 3:
+        for smaller_line in lines.all():
+            if smaller_line != line and image_util.lines_connect(line, smaller_line):
+                completion = image_util.third_line(line, smaller_line, lines)
+                if completion:
+                    print("Found completion: {}".format(completion))
+                    superfluous_lines.add(line)
+    for line in list(superfluous_lines):
+        lines.remove(line.coords)
+
+    # Handle corners at odd intersections
+    for corner in corners.all():
+        for line in lines.all():
+            if corner.points > 4: #and line.line_type == 3:
+                if image_util.point_on_line(corner, line):
+                    print("Subtracting {} {}".format(corner, line))
+                    corner.points -= 4
+
     for corner in corners.all():
         new_node = Node(corner.points, coords=corner.coords)
         new_node.internal = False
         nodes.add(new_node)
-    superfluous_lines = set()
-    for line in lines.all():
-        if line.line_type == 3:
-            for smaller_line in lines.all():
-                if smaller_line != line and image_util.lines_connect(line, smaller_line):
-                    completion = image_util.third_line(line, smaller_line, lines)
-                    if completion:
-                        print("Found completion: {}".format(completion))
-                        superfluous_lines.add(line)
-    for line in list(superfluous_lines):
-        lines.remove(line.coords)
 
     for line in lines.all():
         node1 = nodes.get(line.coords[0])

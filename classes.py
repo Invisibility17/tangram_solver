@@ -24,6 +24,7 @@ class Node:
         self.resolved = False
         self.internal = False
         self.coords=coords
+        self.across = []
 
     def __str__(self):
         return "N{0}: {1} {2} {3} Resolved: {4}".format(
@@ -48,11 +49,23 @@ class Node:
     def __gt__(self, other):
         return self.label > other.label
 
-    def sub_remaining(self, count):
+    def add_across(self, label):
+        if label not in self.across:
+            self.across.append(label)
+
+    def sub_remaining(self, count, nodes, edges):
         if self.remaining_points >= count:
             self.remaining_points -= count
             if self.remaining_points == 0:
                 self.resolved = True
+                for e in self.edges:
+                    edge = edges.get(e)
+                    edge.resolved = True
+                    """n = edge.get_other_node(self.label)
+                    node = nodes.get(n)
+                    if node.resolved:
+                        edge.resolved = True"""
+                
             return True
         else:
             print("Error: node {} does not have {} remaining points".format(self, count))
@@ -67,6 +80,8 @@ class Edge:
         self.nodes = [node1, node2]
         self.resolved = False
         self.coords = coords
+        self.crossbar = False
+        self.across = []
         if raw:
             self.length = self.process_raw(raw)
             self.raw = raw
@@ -74,6 +89,9 @@ class Edge:
             self.length = length
             self.raw = False
 
+    def add_across(self, label):
+        if label not in self.across:
+            self.across.append(label)
     def get_other_node(self, node):
         if self.nodes[0] == node:
             return self.nodes[1]

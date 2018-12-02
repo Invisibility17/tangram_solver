@@ -4,6 +4,122 @@ from math import sqrt
 #edges = GraphElements([])
 debug = True
 
+def add_crossbar(node0, node1, nodes, edges):
+    node0 = nodes.get(node0)
+    node1 = nodes.get(node1)
+
+    new_edge = Edge((True, 0, 1), node0.label, node1.label)
+    new_edge.coords = [node0.coords, node1.coords]
+    new_edge.coords.sort()
+    new_edge.coords = tuple(new_edge.coords)
+    edges.add(new_edge)
+    new_edge.crossbar = True
+    
+    node0.add_edge(new_edge.label)
+    node1.add_edge(new_edge.label)
+
+    return nodes, edges
+    
+def resolve_right_angle(node, nodes, edges):
+    global debug
+    roots, units, others = group_unresolved_edges(node, edges)
+    if len(units) != 2:
+        return 0, nodes, edges
+    if debug: print("Right resolving {}".format(node))
+    far_node0 = nodes.get(units[0].get_other_node(node.label))
+    far_node1 = nodes.get(units[1].get_other_node(node.label))
+    e = are_neighbors(far_node0, far_node1, edges)
+    if not e:
+        new_edge = Edge((True, 0, 1), far_node0.label, far_node1.label)
+        edges.add(new_edge)
+        new_edge.coords = [far_node0.coords, far_node1.coords]
+        new_edge.coords.sort()
+        new_edge.coords = tuple(new_edge.coords)
+        node.add_across(new_edge.label)
+        new_edge.add_across(node.label)
+        far_node0.add_edge(new_edge.label)
+        far_node1.add_edge(new_edge.label)
+    else:
+        node.add_across(e.label)
+        e.add_across(node.label)
+    node.sub_remaining(2, nodes, edges)
+    far_node0.sub_remaining(1, nodes, edges)
+    far_node1.sub_remaining(1, nodes, edges)
+    return 1, nodes, edges
+    
+def fold_root_edge(edge, nodes, edges):
+    global debug
+
+    node0 = nodes.get(edge.nodes[0])
+    node1 = nodes.get(edge.nodes[1])
+
+    roots0, units0, others0 = group_unresolved_edges(node0, edges)
+    roots1, units1, others1 = group_unresolved_edges(node1, edges)
+    found_folds = 0
+    for unit_edge0 in units0:
+        far_node_unit_edge0 = unit_edge0.get_other_node(node0.label)
+        for unit_edge1 in units1:
+            if far_node_unit_edge0 == unit_edge1.get_other_node(node1.label):
+                node = nodes.get(far_node_unit_edge0)
+                if edge.label not in node.across:
+                    if debug: print("Folding {}".format(edge))
+                    node.sub_remaining(2, nodes, edges)
+                    node0.sub_remaining(1, nodes, edges)
+                    node1.sub_remaining(1, nodes, edges)
+                    node.add_across(edge.label)
+                    edge.add_across(node.label)
+                    found_folds += 1
+    if found_folds == 0:
+        if len(units0) + len(units1) > 1:
+            return 0, nodes, edges
+        elif len(units0) == 1:
+            if debug: print("Folding {}".format(edge))
+            far_node_unit_edge = units0[0].get_other_node(node0.label)
+            node = nodes.get(far_node_unit_edge)
+            if edge.label not in node.across:
+                new_edge = Edge((True, 1, 0), node.label, node1.label)
+                edges.add(new_edge)
+                new_edge.coords = [node.coords, node1.coords]
+                new_edge.coords.sort()
+                new_edge.coords = tuple(new_edge.coords)
+                node.add_edge(new_edge.label)
+                node1.add_edge(new_edge.label)
+
+                # Chalk up the resolutions
+                node.add_across(edge.label)
+                edge.add_across(node.label)
+                node.sub_remaining(2, nodes, edges)
+                node0.sub_remaining(1, nodes, edges)
+                node1.sub_remaining(1, nodes, edges)
+                found_folds += 1
+        elif len(units1) == 1:
+            if debug: print("Folding {}".format(edge))
+            far_node_unit_edge = units1[0].get_other_node(node1.label)
+            node = nodes.get(far_node_unit_edge)
+            if edge.label not in node.across:
+                new_edge = Edge((True, 1, 0), node.label, node0.label)
+                edges.add(new_edge)
+                new_edge.coords = [node.coords, node0.coords]
+                new_edge.coords.sort()
+                new_edge.coords = tuple(new_edge.coords)
+                node.add_edge(new_edge.label)
+                node0.add_edge(new_edge.label)
+
+                # Chalk up the resolutions
+                node.add_across(edge.label)
+                edge.add_across(node.label)
+                node.sub_remaining(2, nodes, edges)
+                node0.sub_remaining(1, nodes, edges)
+                node1.sub_remaining(1, nodes, edges)
+                found_folds += 1
+                
+        else:
+            return 0, nodes, edges
+        
+        
+    return found_folds, nodes, edges
+            
+
 """ Resolves any edges of length sqrt(2)"""
 def resolve_root_two(edge, nodes, edges):
     #global nodes
@@ -216,7 +332,7 @@ def split_edge_root(node, edge, nodes, edges):
     #global edges
     # Get neighboring node, create new side node, non-root edge
     far_node = nodes.get(get_far_node(node, edge))
-    side_node = Node(4, [edge.label])
+    side_node = Node(8, [edge.label])
     far_edge = Edge(edge.minus_root(), side_node.label,
                     far_node.label)
 
@@ -225,7 +341,7 @@ def split_edge_root(node, edge, nodes, edges):
     far_node.replace_edge(edge.label, far_edge.label)
     
     # Update properties
-    side_node.internal = False
+    side_node.internal = True
     far_edge.length = edge.minus_root() #(True, 0, 1)
     far_edge.raw = edge.raw - sqrt(2)
     far_edge.nodes = [side_node.label, far_node.label]
@@ -276,16 +392,43 @@ def group_unresolved_edges(node, edges):
 
 def resolve_pointy_node(node, nodes, edges):
     #global edges
-    if debug: print("Resolving node {}".format(node))
+    if debug: print("Pointy resolving node {}".format(node))
     roots, units, others = group_unresolved_edges(node, edges)
    
     if len(units) + len(roots) == 0:
         if debug: print("Error: cannot determine edge")
+        exit()
+        return 0, nodes, edges
     elif (len(units) + len(roots) + len(others)) > 2:
-        if debug: print("Error: which edges to use is indeterminate")
+        if debug: print("Warning: which edges to use is indeterminate. Skipping resolution")
+        return 0, nodes, edges
     elif len(units) == 1 and len(roots) == 1:
-        if debug: print("Best of all worlds... implement later.")
-    elif len(units) == 1 and len(others) == 1:
+        if debug: print("Unit and root edges present; it's clear which to use")
+        unit_edge = units[0]
+        root_edge = roots[0]
+        unit_node = nodes.get(get_far_node(node, unit_edge))
+        root_node = nodes.get(get_far_node(node, root_edge))
+        if not are_neighbors(unit_node, root_node, edges):
+            new_edge = Edge((True, 1, 0), unit_node.label, root_node.label)
+            new_edge.coords = [unit_node.coords, root_node.coords]
+            new_edge.coords.sort()
+            new_edge.coors = tuple(new_edge.coords)
+            edges.add(new_edge)
+            unit_node.add_edge(new_edge.label)
+            root_node.add_edge(new_edge.label)
+        unit_node.add_across(root_edge.label)
+        root_edge.add_across(unit_node.label)
+        node.sub_remaining(1, nodes, edges)
+        unit_node.sub_remaining(2, nodes, edges)
+        root_node.sub_remaining(1, nodes, edges)
+        unit_node.add_across(root_edge.label)
+        root_edge.add_across(unit_node.label)
+        return 1, nodes, edges
+    else:
+        if debug: print("Warning: something weird is happening. Skipping resolution. units {} roots {}".format(len(units), len(roots)))
+        return 0, nodes, edges
+        
+    """elif len(units) == 1 and len(others) == 1:
         if debug: print("Found irregular edge")
         unit_edge = units[0]
         other_edge = others[0]
@@ -353,11 +496,16 @@ def resolve_pointy_node(node, nodes, edges):
                         merge_nodes(far_root_node, far_node)
                         far_root_node.sub_remaining(5)                        
                 far_unit_node.sub_remaining(2)
-                node.sub_remaining(1)
-
-                
-                
-
+                node.sub_remaining(1) """
+    #return nodes, edges
+              
+def are_neighbors(node1, node2, edges):
+    for e in node1.edges:
+        edge = edges.get(e)
+        if edge.get_other_node(node1.label) == node2.label:
+            return edge
+    return False
+        
 
 def split_edge_one(node, edge, nodes, edges):
     #global nodes

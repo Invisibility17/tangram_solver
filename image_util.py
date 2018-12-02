@@ -2,6 +2,116 @@ from math import sqrt, acos, pi, sin, cos
 import cv2
 #import numpy as np
 threshold = 8
+progression = [(1, 0), (0, 1), (2, 0), (1, 1), (0, 2), (3, 0), (2, 1), (1, 2), (4, 0), (3, 1), (2,2)]
+
+def split_line(line, corners, lines, unit_length, img):
+    progression = [(2, 0), (0, 2), (3, 0), (0, 3), (4, 0), (0, 4)]
+    for length in progression:
+        if close_enough( distance_between(*line.coords), unit_length*(length[0] + sqrt(2)*length[1]), 4):
+            print("Split {}".format(line))
+            # split in half
+            if sum(length) == 2 or sum(length) ==4:
+                midpoint = find_midpoint(*line.coords)
+                
+                existing = False
+                for corner in corners.all():
+                    if points_are_close(midpoint, corner.coords):
+                        existing = True
+                        corner.add_neighbor(line.coords[0])
+                        corner.add_neighbor(line.coords[1])
+                if not existing:
+                    new_corner = Corner(midpoint)
+                    new_corner.add_neighbor(line.coords[0])
+                    corners.get(line.coords[0]).add_neighbor(midpoint)
+                    corners.get(line.coords[0]).remove_neighbor(line.coords[1])
+                    new_corner.add_neighbor(line.coords[1])
+                    corners.get(line.coords[1]).add_neighbor(midpoint)
+                    corners.get(line.coords[1]).remove_neighbor(line.coords[0])
+                    corners.add(new_corner)
+                    new_corner.points = find_convexity(new_corner.coords, img)
+                    new_lines = [[line.coords[0], midpoint], [line.coords[1], midpoint]]
+                    for new_line in new_lines:
+                        new_line.sort()
+                        new_line = tuple(new_line)
+                        lines = add_new_line(new_line, lines, img)
+
+                    
+            elif sum(length) == 3:
+                tri1, tri2 = find_trisections(*line.coords)
+                existing = [False, False]
+                for corner in corners.all():
+                    if points_are_close(tri1, corner.coords):
+                        corner.add_neighbor(line.coords[0])
+                        corner.add_neighbor(line.coords[1])
+                        existing[0] = True
+                        tri1 = corner.coords
+                    if points_are_close(tri2, corner.coords):
+                        corner.add_neighbor(line.coords[0])
+                        corner.add_neighbor(line.coords[1])
+                        existing[1] = True
+                        tri2 = corner.coords
+                        
+                if not existing[0]:
+                    new_corner = Corner(tri1)
+                    new_corner.add_neighbor(line.coords[0])
+                    new_corner.add_neighbor(tri2)
+                    new_corner.points = find_convexity(new_corner.coords, img)
+                    corners.add(new_corner)
+                    new_lines = [[line.coords[0], tri1], [tri1, tri2]]
+                    for new_line in new_lines:
+                        new_line.sort()
+                        new_line = tuple(new_line)
+                        lines = add_new_line(new_line, lines, img)
+                        
+                if not existing[1]:
+                    new_corner = Corner(tri2)
+                    new_corner.add_neighbor(line.coords[1])
+                    corners.get(line.coords[1]).add_neighbor(tri2)
+                    new_corner.add_neighbor(tri1)
+                    corners.get(tri1).add_neighbor(tri2)
+                    new_corner.points = find_convexity(new_corner.coords, img)
+                    corners.add(new_corner)
+                    new_lines = [[tri1, tri2], [line.coords[1], tri2]]
+                    for new_line in new_lines:
+                        new_line.sort()
+                        new_line = tuple(new_line)
+                        lines = add_new_line(new_line, lines, img)
+            lines.remove(line)
+            return 1, corners, lines
+    return 0, corners, lines
+
+def add_new_line(line, lines, img):
+    if inside_edge(*line, img):
+        new_line = Line(line, 1)
+        lines.add(new_line)
+    elif outside_edge(*line, img):
+        new_line = Line(line, 2)
+        lines.add(new_line)
+    else:
+        new_line = Line(line, 3)
+        lines.add(new_line)
+    return lines
+
+def find_midpoint(point1, point2):
+    new_x = int(round((point1[0] + point2[0])/2))
+    new_y = int(round((point1[1] + point2[1])/2))
+    return (new_x, new_y)
+
+def find_trisections(point1, point2):
+    dif_x = point1[0] - point2[0]
+    dif_y = point1[1] - point2[1]
+    pt1x = int(round(point1[0] - dif_x/3))
+    pt1y = int(round(point1[1] - dif_y/3))
+    pt2x = int(round(point1[0] - 2*dif_x/3))
+    pt2y = int(round(point1[1] - 2*dif_y/3))
+    return (pt1x, pt1y), (pt2x, pt2y)
+    
+def point_on_line(point, line):
+    if point.coords in line.coords:
+        return False
+    line1 = (point.coords, line.coords[0])
+    line2 = (point.coords, line.coords[1])
+    return close_enough(distance_between(*line1) + distance_between(*line2), distance_between(*line.coords), 3)
 
 def lines_connect(line1, line2):
     if line1.coords[0] in line2.coords:
@@ -39,8 +149,8 @@ def at_45_degree_multiple(point1, point2):
     return False
     
 def is_regular_length(point1, point2, unit_length):
+    global progression
     distance = distance_between(point1, point2)
-    progression = [(1, 0), (0, 1), (2, 0), (1, 1), (0, 2), (3, 0), (2, 1), (1, 2), (4, 0), (3, 1), (2,2)]
     for lengths in progression:
         if close_enough((lengths[0]+sqrt(2)*lengths[1])*unit_length, distance, 4):
             return True
