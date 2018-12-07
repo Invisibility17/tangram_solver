@@ -16,11 +16,11 @@ from classes import GraphElements, Node, Edge
 def split_lines(corners, lines, filename, unit_length):
     bw_img = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
     processed_count = 1
-    while processed_count != 0:
-        print(lines.size())
+    while processed_count > 0:
+        #print(lines.size())
         processed_count = 0
         for line in lines.all():
-            print(line)
+            #print(line)
             if not image_util.close_enough(image_util.distance_between(*line.coords), unit_length) \
                and not image_util.close_enough(image_util.distance_between(*line.coords), sqrt(2)*unit_length):
                 processed, corners, lines = image_util.split_line(line, corners, lines, unit_length, bw_img)
@@ -129,7 +129,7 @@ def detect_corners(filename, unit_length):
     lines = GraphElements(list(lines))
         
     
-    #cv2.imwrite('detected_corners_and_edges.jpg',color_img)
+    cv2.imwrite('raw_corners.jpg',color_img)
 
     return corners, lines
 

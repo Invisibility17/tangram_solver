@@ -4,6 +4,7 @@ import actions
 import search_actions
 import csp2
 import shape_classes
+import image_util
 
 def print_all(nodes, edges):
     for node in nodes.all():
@@ -11,10 +12,29 @@ def print_all(nodes, edges):
     for edge in edges.all():
         print(edge)
  
-filename = "tangram2.png"
+filename = "tangram14.png"
 unit_length = image_processing.get_unit_length(filename)
 corners, lines = image_processing.detect_corners(filename, unit_length)
+print("{} corners {} lines".format(corners.size(), lines.size()))
+print_all(corners, lines)
 corners, lines = image_processing.split_lines(corners, lines, filename, unit_length)
+print("{} corners {} lines".format(corners.size(), lines.size()))
+print_all(corners, lines)
+for x in range(10):
+    corners, lines = image_util.match_corners(corners, lines, filename, unit_length)
+    print("{} corners {} lines".format(corners.size(), lines.size()))
+    corners, lines = image_processing.split_lines(corners, lines, filename, unit_length)
+    print("{} corners {} lines".format(corners.size(), lines.size()))
+    print(len(list(set(lines.all()))))
+"""
+corners, lines = image_util.match_corners(corners, lines, filename, unit_length)
+print("{} corners {} lines".format(corners.size(), lines.size()))
+corners, lines = image_processing.split_lines(corners, lines, filename, unit_length)
+print("{} corners {} lines".format(corners.size(), lines.size()))
+corners, lines = image_util.match_corners(corners, lines, filename, unit_length)
+print("{} corners {} lines".format(corners.size(), lines.size()))
+corners, lines = image_processing.split_lines(corners, lines, filename, unit_length)
+print("{} corners {} lines".format(corners.size(), lines.size()))"""
 image_processing.visualize(filename, "corners_and_edges.jpg", corners, lines)
 #print_all(corners, lines)
 nodes, edges = image_processing.create_nodes_edges(corners, lines, unit_length)
@@ -40,7 +60,7 @@ while sum(resolved_or_folded_this_round) > 0:
     
     resolved_or_folded_this_round = (did_resolve, did_fold, did_resolve_right)
 
-nodes, edges = graph_resolution.add_crossbars(nodes, edges)
+#nodes, edges = graph_resolution.add_crossbars(nodes, edges)
 
 
 image_processing.visualize(filename, "resolved.jpg", nodes, edges)
@@ -65,6 +85,8 @@ squares = list(set(squares))
 print(len(large_triangles))
 print(len(medium_triangles))
 print(len(parallelograms))
+for p in parallelograms:
+    print(p)
 print(len(squares))
 print(len(small_triangles))
 

@@ -180,7 +180,8 @@ class GraphElements:
         if type(element) == list:
             self.elements += element
         else:
-            self.elements.append(element)
+            if element not in self.elements:
+                self.elements.append(element)
 
     def get(self, label):
         if type(label) == int:
@@ -188,10 +189,15 @@ class GraphElements:
                 if element.label == label:
                     return element
         elif type(label) == tuple:
-            for element in self.elements:
-                if element.coords == label:
-                    return element
-        print("Error: {} not found".format(label))
+            if type(label[0]) == tuple:
+                for element in self.elements:
+                    if image_util.lines_are_close(element.coords, label):
+                        return element
+            else:
+                for element in self.elements:
+                    if image_util.points_are_close(element.coords, label):
+                        return element
+            print("Error: {} not found".format(label))
     def size(self):
         return len(self.elements)
             
@@ -207,6 +213,7 @@ class GraphElements:
             for element in []+self.elements:
                 if element.coords == label:
                     self.elements.remove(element)
+            
 
     def contains(self, label):
         if type(label) == int:
@@ -215,7 +222,14 @@ class GraphElements:
                     return True
             return False
         if type(label) == tuple:
-            for element in self.elements:
-                if element.coords == label:
-                    return True
-            return False
+            if type(label[0]) == tuple:
+                for element in self.elements:
+                    if image_util.lines_are_close(element.coords, label):
+                        return element
+            else:
+                for element in self.elements:
+                    if image_util.points_are_close(element.coords, label):
+                        return True
+                return False
+            #print("Error: {} not found".format(label))
+

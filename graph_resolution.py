@@ -74,7 +74,7 @@ def resolve_right_angles(nodes, edges):
     
             
 # update resolutions / do not print
-#actions.gather_resolutions()
+
 def fold_root_edges(nodes, edges):
     folded_something = 1
     fold_count = 0
@@ -98,13 +98,8 @@ def resolve_pointy_nodes(nodes, edges):
                 resolved, nodes, edges = actions.resolve_pointy_node(node, nodes, edges)
                 resolved_something += resolved
                 resolve_count += resolved
-            #nodes_to_resolve.append(node)
-    #for node in nodes_to_resolve:
-        #actions.resolve_pointy_node(node, nodes, edges)
+
     return resolve_count, nodes, edges
-    
-# update resolutions 
-#actions.gather_resolutions()
 
 def resolve_squares(nodes, edges):
     # identify squares
@@ -112,51 +107,3 @@ def resolve_squares(nodes, edges):
     for sq in squares:
         nodes, edges = actions.resolve_square(sq, nodes, edges)
     return nodes, edges
-        #actions.gather_resolutions()
-
-    # compile and resolve pointy nodes
-    #nodes_to_resolve = []
-    #for node in actions.nodes.all():
-    #    if node.remaining_points == 1:
-    #        actions.resolve_pointy_node(node)
-
-    #actions.gather_resolutions()
-    #squares = actions.identify_squares()
-
-
-#actions.gather_resolutions(True)
-"""
-large_triangles = []
-medium_triangles = []
-small_triangles = []
-parallelograms = []
-squares = []
-for node in actions.nodes.all():
-    large_triangles += search_actions.find_large_triangle(node)
-    medium_triangles += search_actions.find_medium_triangle(node)
-    small_triangles += search_actions.find_small_triangle(node)
-    parallelograms += search_actions.find_parallelogram(node)
-    squares += search_actions.find_square(node)
-    
-large_triangles = list(set(large_triangles))
-medium_triangles = list(set(medium_triangles))
-small_triangles = list(set(small_triangles))
-parallelograms = list(set(parallelograms))
-squares = list(set(squares))
-
-print(len(large_triangles))
-print(len(medium_triangles))
-print(len(parallelograms))
-print(len(squares))
-print(len(small_triangles))
-
-variables = ['LT1', 'LT2', 'MT', 'SQ', 'PA', 'ST1', 'ST2']
-domains = {'LT1':large_triangles, 'LT2':large_triangles, 'MT':medium_triangles,
-           'SQ':squares, 'PA':parallelograms, 'ST1':small_triangles, 'ST2':small_triangles}
-
-neighbors = {}
-for i in range(len(variables)):
-    neighbors[variables[i]] = variables[:i] + variables[i+1:]
-
-prob = csp2.CSP(variables, domains, neighbors, shape_classes.constrain)
-csp2.backtracking_search(prob)"""
