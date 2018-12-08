@@ -12,13 +12,13 @@ def print_all(nodes, edges):
     for edge in edges.all():
         print(edge)
  
-filename = "tangram14.png"
+filename = "tangram15.png"
 unit_length = image_processing.get_unit_length(filename)
 corners, lines = image_processing.detect_corners(filename, unit_length)
-print("{} corners {} lines".format(corners.size(), lines.size()))
+#print("{} corners {} lines".format(corners.size(), lines.size()))
 print_all(corners, lines)
 corners, lines = image_processing.split_lines(corners, lines, filename, unit_length)
-print("{} corners {} lines".format(corners.size(), lines.size()))
+#print("{} corners {} lines".format(corners.size(), lines.size()))
 print_all(corners, lines)
 for x in range(10):
     corners, lines = image_util.match_corners(corners, lines, filename, unit_length)
@@ -50,13 +50,13 @@ print("Unit length is {}".format(unit_length))
 resolved_or_folded_this_round = (0, 0, 1)
 while sum(resolved_or_folded_this_round) > 0:
     did_resolve, nodes, edges = graph_resolution.resolve_pointy_nodes(nodes, edges)
-    if did_resolve: print_all(nodes, edges)
+    #if did_resolve: print_all(nodes, edges)
 
     did_fold, nodes, edges = graph_resolution.fold_root_edges(nodes, edges)
-    if did_fold: print_all(nodes, edges)
+    #if did_fold: print_all(nodes, edges)
     
     did_resolve_right, nodes, edges = graph_resolution.resolve_right_angles(nodes, edges)
-    if did_resolve_right: print_all(nodes, edges)
+    #if did_resolve_right: print_all(nodes, edges)
     
     resolved_or_folded_this_round = (did_resolve, did_fold, did_resolve_right)
 
@@ -82,13 +82,21 @@ small_triangles = list(set(small_triangles))
 parallelograms = list(set(parallelograms))
 squares = list(set(squares))
 
-print(len(large_triangles))
+"""print(len(large_triangles))
+for lt in large_triangles:
+    print(lt.triangle_dictionary)
 print(len(medium_triangles))
+for mt in medium_triangles:
+   print(mt.triangle_dictionary)
 print(len(parallelograms))
-for p in parallelograms:
-    print(p)
+for parallel in parallelograms:
+    print(parallel.triangle_dictionary)
 print(len(squares))
+for square in squares:
+    print(square.triangle_dictionary)
 print(len(small_triangles))
+for st in small_triangles:
+    print(st.triangle_dictionary)"""
 
 variables = ['LT1', 'LT2', 'MT', 'SQ', 'PA', 'ST1', 'ST2']
 domains = {'LT1':large_triangles, 'LT2':large_triangles, 'MT':medium_triangles,
@@ -100,7 +108,7 @@ for i in range(len(variables)):
 
 prob = csp2.CSP(variables, domains, neighbors, shape_classes.constrain)
 result = csp2.backtracking_search(prob)
-
+print(result)
 polygons = []
 for var in result:
     poly = []

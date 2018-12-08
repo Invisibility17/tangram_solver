@@ -34,7 +34,7 @@ def get_unit_length(filename):
     return sqrt(black_area/8)
 
 def detect_edges(corners, unit_length):
-    print("Detecting edges")
+    #print("Detecting edges")
     nodes = GraphElements([])
     edges = GraphElements([])
     corner = corners.all()[0]
@@ -165,7 +165,7 @@ def create_nodes_edges(corners, lines, unit_length):
             if smaller_line != line and image_util.lines_connect(line, smaller_line):
                 completion = image_util.third_line(line, smaller_line, lines)
                 if completion:
-                    print("Found completion: {}".format(completion))
+                    #print("Found completion: {}".format(completion))
                     superfluous_lines.add(line)
     for line in list(superfluous_lines):
         lines.remove(line.coords)
@@ -175,7 +175,7 @@ def create_nodes_edges(corners, lines, unit_length):
         for line in lines.all():
             if corner.points > 4: #and line.line_type == 3:
                 if image_util.point_on_line(corner, line):
-                    print("Subtracting {} {}".format(corner, line))
+                    #print("Subtracting {} {}".format(corner, line))
                     corner.points -= 4
 
     for corner in corners.all():

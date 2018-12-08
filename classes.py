@@ -37,7 +37,8 @@ class Node:
         return self.remaining_points > 2
 
     def add_edge(self, edge):
-        self.edges.append(edge)
+        if edge not in self.edges:
+            self.edges.append(edge)
 
     def replace_edge(self, current_edge, future_edge):
         self.edges.remove(current_edge)

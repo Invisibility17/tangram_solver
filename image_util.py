@@ -2,7 +2,7 @@ from math import sqrt, acos, pi, sin, cos
 import cv2
 #import numpy as np
 threshold = 8
-progression = [(1, 0), (0, 1), (2, 0), (1, 1), (0, 2), (3, 0), (2, 1), (1, 2), (4, 0), (3, 1), (2,2), (5, 0),(0,4)]
+progression = [(1, 0), (0, 1), (2, 0), (1, 1), (0, 2), (3, 0), (2, 1), (1, 2), (4, 0), (3, 1), (2,2), (5, 0),(0,4), (6,0)]
 
 def match_corners(corners, lines, filename, unit_length):
     bw_img = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
@@ -27,10 +27,10 @@ def match_corners(corners, lines, filename, unit_length):
                         corners.get(corner2.coords).add_neighbor(corner1.coords)
     return corners, lines
 def split_line(line, corners, lines, unit_length, img):
-    progression = [(2, 0), (0, 2), (3, 0), (0, 3), (4, 0), (5, 0), (0, 4)]
+    progression = [(2, 0), (0, 2), (3, 0), (0, 3), (4, 0), (5, 0), (0, 4), (6,0)]
     for length in progression:
         if close_enough( distance_between(*line.coords), unit_length*(length[0] + sqrt(2)*length[1]), 4):
-            print("Splitting line length {}".format(length))
+            #print("Splitting line length {}".format(length))
 
             #print("Split {}".format(line))
             # split in half
@@ -40,7 +40,7 @@ def split_line(line, corners, lines, unit_length, img):
                     existing = False
                     for corner in corners.all():
                         if points_are_close(midpoint, corner.coords):
-                            print("Found close points {} {}".format(corner.coords, midpoint))
+                            #print("Found close points {} {}".format(corner.coords, midpoint))
                             existing = True
                             corner.add_neighbor(line.coords[0])
                             corner.add_neighbor(line.coords[1])
@@ -49,7 +49,7 @@ def split_line(line, corners, lines, unit_length, img):
                         new_corner = Corner(midpoint)
                         new_corner.add_neighbor(line.coords[0])
                         new_corner.add_neighbor(line.coords[1])
-                        print("Adding new corner {}".format(new_corner))
+                        #print("Adding new corner {}".format(new_corner))
                         corners.add(new_corner)
                         new_corner.points = find_convexity(new_corner.coords, img)
                     new_lines = [[line.coords[0], midpoint], [line.coords[1], midpoint]]
@@ -57,7 +57,7 @@ def split_line(line, corners, lines, unit_length, img):
                         new_line.sort()
                         new_line = tuple(new_line)
                         lines = add_new_line(new_line, lines, img)
-                    print("Getting {}".format(line.coords[0]))
+                    #print("Getting {}".format(line.coords[0]))
                     corners.get(line.coords[0]).add_neighbor(midpoint)
                     corners.get(line.coords[0]).remove_neighbor(line.coords[1])
                     corners.get(line.coords[1]).add_neighbor(midpoint)
@@ -81,6 +81,7 @@ def split_line(line, corners, lines, unit_length, img):
                             new_line.sort()
                             new_line = tuple(new_line)
                             lines = add_new_line(new_line, lines, img)
+                        print("Rejiggering {}".format(line))
                         corners.get(line.coords[0]).add_neighbor(corner.coords)
                         corners.get(line.coords[0]).remove_neighbor(line.coords[1])
                         corners.get(line.coords[1]).add_neighbor(corner.coords)
@@ -98,7 +99,7 @@ def split_line(line, corners, lines, unit_length, img):
                         new_line.sort()
                         new_line = tuple(new_line)
                         lines = add_new_line(new_line, lines, img)
-                    print(corners.get(line.coords[0]), corners.get(line.coords[1]))
+                    #print(corners.get(line.coords[0]), corners.get(line.coords[1]))
                     corners.get(line.coords[0]).add_neighbor(new_corner.coords)
                     corners.get(line.coords[0]).remove_neighbor(line.coords[1])
                     corners.get(line.coords[1]).add_neighbor(new_corner.coords)
@@ -148,7 +149,7 @@ def split_line(line, corners, lines, unit_length, img):
                         lines = add_new_line(new_line, lines, img)"""
 
             
-                        
+            print("Removing {}".format(line)) 
             lines.remove(line.coords)
             return 1, corners, lines
             
@@ -420,6 +421,7 @@ class Corner():
                 self.neighbors.remove(other_neighbor)
                 return
         print("Error: {} does not neighbor {}".format(self.coords, neighbor))
+        print(self.__str__())
         exit()
 
     def __hash__(self):
