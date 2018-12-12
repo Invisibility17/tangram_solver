@@ -141,6 +141,19 @@ def visualize(in_name, out_name, corners, edges):
         cv2.circle(color_img, corner.coords, 5, (255, 0, 0), -1)
     cv2.imwrite(out_name,color_img)
 
+def bw_visualize(in_name, out_name, corners, edges):
+    img = cv2.imread(in_name, cv2.IMREAD_GRAYSCALE)
+    h, w= img.shape
+    img = np.zeros((h,w,1), np.uint8)
+    for edge in edges.all():
+        cv2.line(img,edge.coords[0],edge.coords[1],255,2)
+    for corner in corners.all():
+        cv2.circle(img, corner.coords, 5, 245, -1)
+    img = cv2.bitwise_not(img)
+    cv2.imwrite(out_name,img)
+    
+    
+
 def fill_in_solution(in_name, out_name, polygons):
     img = cv2.imread(in_name)
     for poly in polygons:

@@ -422,7 +422,7 @@ class Corner():
                 return
         print("Error: {} does not neighbor {}".format(self.coords, neighbor))
         print(self.__str__())
-        exit()
+        #exit()
 
     def __hash__(self):
         return hash(self.coords)

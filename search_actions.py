@@ -142,7 +142,11 @@ def connected_by_units(node1, node2, excluded_node, nodes, edges):
     unit_neighbors1 = get_neighbors(node1, units1, nodes)
     roots2, units2, others2 = group_edges(node2, edges)
     unit_neighbors2 = get_neighbors(node2, units2, nodes)
+    
     for unit in unit_neighbors1:
+        #roots, units, others = group_edges(unit, edges)
+        #root_neighbors = get_neighbors(unit, roots, nodes)
+        #if (excluded_node.label not in root_neighbors) and
         if (unit in unit_neighbors2) and unit != excluded_node:
             return unit
     return False
